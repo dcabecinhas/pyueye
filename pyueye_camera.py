@@ -1,38 +1,11 @@
 #!/usr/bin/env python
 
-#------------------------------------------------------------------------------
-#                 PyuEye example - camera modul
-#
-# Copyright (c) 2017 by IDS Imaging Development Systems GmbH.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-# 1. Redistributions of source code must retain the above copyright notice,
-#    this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-# 3. Neither the name of the copyright holder nor the names of its contributors
-#    may be used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-#------------------------------------------------------------------------------
-
 from pyueye import ueye
-from pyueye_example_utils import (uEyeException, Rect, get_bits_per_pixel,
+from pyueye_utils import (uEyeException, Rect, get_bits_per_pixel,
                                   ImageBuffer, check)
+
+import ctypes
+import numpy as np
 
 class Camera:
     def __init__(self, device_id=0):
@@ -128,3 +101,39 @@ class Camera:
         check(ueye.is_ImageFormat(self.h_cam, ueye.IMGFRMT_CMD_GET_LIST,
                                   format_list, ueye.sizeof(format_list)))
         return format_list
+
+    def set_full_auto(self):
+        print("full auto")
+        disable = ueye.DOUBLE(0)
+        enable = ueye.DOUBLE(1)
+        zero = ueye.DOUBLE(0)
+        ms = ueye.DOUBLE(20)
+        rate = ueye.DOUBLE(50)
+        newrate = ueye.DOUBLE()
+        number = ueye.UINT()
+
+        ret = ueye.is_SetAutoParameter(self.h_cam, ueye.IS_SET_ENABLE_AUTO_GAIN, enable, zero);
+        print('AG:',ret)
+        ret = ueye.is_SetAutoParameter(self.h_cam, ueye.IS_SET_ENABLE_AUTO_SHUTTER, enable, zero);
+        print('A_SHUTTER:',ret)
+        ret = ueye.is_SetFrameRate(self.h_cam, rate, newrate);
+        print('FR:',ret,newrate)
+        ret = ueye.is_Exposure(self.h_cam, ueye.IS_EXPOSURE_CMD_GET_EXPOSURE, ms, ueye.sizeof(ms));
+        print('EXP:',ret,ms)
+        ret = ueye.is_PixelClock(self.h_cam, ueye.IS_PIXELCLOCK_CMD_GET_NUMBER, number, ueye.sizeof(number))
+        print('PxCLK #:',ret, number)
+        PCrange = (ctypes.c_uint * 3)()
+        ret = ueye.is_PixelClock(self.h_cam, ueye.IS_PIXELCLOCK_CMD_GET_RANGE, PCrange, 3*ueye.sizeof(number))
+        print('PxCLK range:', ret, PCrange[0], PCrange[1], PCrange[2])
+        list_pixel_clocks = (ctypes.c_uint * 150)()
+        ret = ueye.is_PixelClock(self.h_cam, ueye.IS_PIXELCLOCK_CMD_GET_LIST,  list_pixel_clocks, number*ueye.sizeof(number))
+        list_np = np.frombuffer(list_pixel_clocks, int)
+        print('PxCLK list:', ret, list_np[0:number.value])
+        ret = ueye.is_PixelClock(self.h_cam, ueye.IS_PIXELCLOCK_CMD_GET, number, ueye.sizeof(number))
+        print('PxCLK current:',ret, number)
+        ret = ueye.is_PixelClock(self.h_cam, ueye.IS_PIXELCLOCK_CMD_GET_DEFAULT, number, ueye.sizeof(number))
+        print('PxCLK default:',ret, number)
+        ret = ueye.is_PixelClock(self.h_cam, ueye.IS_PIXELCLOCK_CMD_SET, ueye.UINT(20), ueye.sizeof(number))
+        print('PxCLK set:',ret, number)
+        ret = ueye.is_PixelClock(self.h_cam, ueye.IS_PIXELCLOCK_CMD_GET, number, ueye.sizeof(number))
+        print('PxCLK current:',ret, number)

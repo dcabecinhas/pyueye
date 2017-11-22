@@ -1,38 +1,8 @@
 #!/usr/bin/env python
 
-#------------------------------------------------------------------------------
-#                 PyuEye example - utilities modul
-#
-# Copyright (c) 2017 by IDS Imaging Development Systems GmbH.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-# 1. Redistributions of source code must retain the above copyright notice,
-#    this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-# 3. Neither the name of the copyright holder nor the names of its contributors
-#    may be used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-#------------------------------------------------------------------------------
-
 from pyueye import ueye
 from threading import Thread
-from ctypes import byref
+import timeit
 
 def get_bits_per_pixel(color_mode):
     """
@@ -144,9 +114,13 @@ class FrameThread(Thread):
         self.running = True
         self.views = views
         self.copy = copy
+        self.t_old = timeit.default_timer()
+
+        cam.set_full_auto()
 
     def run(self):
         while self.running:
+
             img_buffer = ImageBuffer()
             ret = ueye.is_WaitForNextImage(self.cam.handle(),
                                            self.timeout,
@@ -154,16 +128,20 @@ class FrameThread(Thread):
                                            img_buffer.mem_id)
             if ret == ueye.IS_SUCCESS:
                 self.notify(ImageData(self.cam.handle(), img_buffer))
+                t = timeit.default_timer()
+                fps = 1/(t - self.t_old)
+                print(fps, ret)
+                self.t_old = t
 
+            
             #break
 
     def notify(self, image_data):
-        if self.views:
-            if type(self.views) is not list:
-                self.views = [self.views]
-            for view in self.views:
-                view.handle(image_data)
+        print(image_data.as_1d_image()[0:10,1,1])
+        image_data.unlock()
+        # do things with image_data
 
     def stop(self):
         self.cam.stop_video()
         self.running = False
+
